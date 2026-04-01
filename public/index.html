@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Solutecno Bot - Configuración</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f7fb; margin: 0; color: #1b1f23; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .card { background: white; border-radius: 16px; padding: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    h1, h2 { margin-top: 0; }
+    label { display: block; font-size: 14px; margin-bottom: 6px; font-weight: bold; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #d0d7de; margin-bottom: 12px; }
+    button { padding: 10px 16px; border: 0; border-radius: 10px; cursor: pointer; background: #0d6efd; color: white; font-weight: bold; }
+    .muted { color: #667085; font-size: 14px; }
+    .status { font-weight: bold; padding: 8px 12px; border-radius: 10px; display: inline-block; }
+    .connected { background: #dcfce7; color: #166534; }
+    .disconnected { background: #fee2e2; color: #991b1b; }
+    img { max-width: 280px; border-radius: 12px; border: 1px solid #e5e7eb; }
+    pre { white-space: pre-wrap; background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 12px; max-height: 240px; overflow: auto; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Solutecno Bot - Panel de configuración</h1>
+    <p class="muted">Panel simple. El bot funciona por WhatsApp. Acá solo configurás.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Estado</h2>
+        <p>Conexión: <span id="statusBadge" class="status disconnected">Cargando...</span></p>
+        <p>Último estado: <strong id="lastState">-</strong></p>
+        <p>Leads guardados: <strong id="leadsCount">0</strong></p>
+        <div id="qrBox"></div>
+        <br>
+        <button onclick="reloadStatus()">Actualizar</button>
+        <button onclick="restartBot()">Reiniciar bot</button>
+      </div>
+
+      <div class="card">
+        <h2>Configuración general</h2>
+        <label>Número admin</label>
+        <input id="adminNumber" placeholder="5491112345678">
+
+        <label>Nombre del bot</label>
+        <input id="botName" placeholder="Solutecno Bot">
+
+        <label>Nombre empresa</label>
+        <input id="companyName" placeholder="Solutecno Argentina">
+
+        <label>Mensaje bienvenida</label>
+        <textarea id="welcomeMessage" rows="3"></textarea>
+
+        <label>Respuesta por defecto</label>
+        <textarea id="defaultReply" rows="3"></textarea>
+
+        <label>Palabras para detectar lead (separadas por coma)</label>
+        <input id="leadKeywords" placeholder="precio, presupuesto, contratar">
+
+        <button onclick="saveConfig()">Guardar configuración</button>
+      </div>
+
+      <div class="card">
+        <h2>Base de conocimiento</h2>
+        <label>Texto empresa</label>
+        <textarea id="empresa" rows="4"></textarea>
+
+        <label>Servicios (separados por coma)</label>
+        <input id="servicios" placeholder="Bot de WhatsApp, Hosting, SEO">
+
+        <label>Horario</label>
+        <input id="horario" placeholder="Lunes a viernes 9 a 18 hs">
+
+        <label>Contacto</label>
+        <input id="contacto" placeholder="Seguimos por este WhatsApp">
+
+        <button onclick="saveKnowledge()">Guardar conocimiento</button>
+      </div>
+
+      <div class="card">
+        <h2>Últimos logs</h2>
+        <pre id="logs">Cargando...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function reloadStatus() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+
+      const badge = document.getElementById('statusBadge');
+      badge.textContent = data.status;
+      badge.className = 'status ' + (data.status === 'connected' ? 'connected' : 'disconnected');
+
+      document.getElementById('lastState').textContent = data.lastState || '-';
+      document.getElementById('leadsCount').textContent = data.leadsCount || 0;
+
+      document.getElementById('adminNumber').value = data.config.adminNumber || '';
+      document.getElementById('botName').value = data.config.botName || '';
+      document.getElementById('companyName').value = data.config.companyName || '';
+      document.getElementById('welcomeMessage').value = data.config.welcomeMessage || '';
+      document.getElementById('defaultReply').value = data.config.defaultReply || '';
+      document.getElementById('leadKeywords').value = (data.config.leadKeywords || []).join(', ');
+
+      document.getElementById('empresa').value = data.knowledge.empresa || '';
+      document.getElementById('servicios').value = (data.knowledge.servicios || []).join(', ');
+      document.getElementById('horario').value = data.knowledge.horario || '';
+      document.getElementById('contacto').value = data.knowledge.contacto || '';
+
+      document.getElementById('logs').textContent = JSON.stringify(data.logs || [], null, 2);
+
+      const qrBox = document.getElementById('qrBox');
+      if (data.qrImageData) {
+        qrBox.innerHTML = '<p><strong>QR disponible:</strong></p><img src="' + data.qrImageData + '" alt="QR">';
+      } else {
+        qrBox.innerHTML = '<p class="muted">No hay QR pendiente.</p>';
+      }
+    }
+
+    async function saveConfig() {
+      const payload = {
+        adminNumber: document.getElementById('adminNumber').value,
+        botName: document.getElementById('botName').value,
+        companyName: document.getElementById('companyName').value,
+        welcomeMessage: document.getElementById('welcomeMessage').value,
+        defaultReply: document.getElementById('defaultReply').value,
+        leadKeywords: document.getElementById('leadKeywords').value
+      };
+
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      alert(data.ok ? 'Configuración guardada' : 'Error al guardar');
+      reloadStatus();
+    }
+
+    async function saveKnowledge() {
+      const payload = {
+        empresa: document.getElementById('empresa').value,
+        servicios: document.getElementById('servicios').value,
+        horario: document.getElementById('horario').value,
+        contacto: document.getElementById('contacto').value
+      };
+
+      const res = await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      alert(data.ok ? 'Conocimiento guardado' : 'Error al guardar');
+      reloadStatus();
+    }
+
+    async function restartBot() {
+      await fetch('/api/restart', { method: 'POST' });
+      alert('Reiniciando. Esperá 5 segundos y actualizá.');
+      setTimeout(reloadStatus, 5000);
+    }
+
+    reloadStatus();
+    setInterval(reloadStatus, 7000);
+  </script>
+</body>
+</html>
