@@ -1,11 +1,8 @@
 {
-  "adminNumber": "5491112345678",
-  "botName": "Solutecno Bot",
-  "companyName": "Solutecno Argentina",
-  "welcomeMessage": "Hola, soy Solutecno Bot de Solutecno Argentina. Escribime tu consulta y te ayudo.",
-  "defaultReply": "Recibí tu mensaje. En breve seguimos por acá.",
-  "outOfScopeReply": "No entendí el comando. Escribí !menu para ver opciones.",
-  "notifyAdminOnLead": true,
-  "leadKeywords": ["precio", "presupuesto", "contratar", "servicio", "info", "hosting", "web", "seo", "marketing", "whatsapp", "bot"],
-  "blockedGroups": true
+  "adminNumber": "5491153775879",
+  "botName": "botia",
+  "companyName": "",
+  "welcomeMessage": "",
+  "defaultReply": "",
+  "leadKeywords": ""
 }

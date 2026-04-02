@@ -1,0 +1,145 @@
+const fs = require('fs');
+const path = require('path');
+const express = require('express');
+const bodyParser = require('body-parser');
+const QRCode = require('qrcode');
+const qrcodeTerminal = require('qrcode-terminal');
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Pool } = require('pg');
+
+const app = express();
+const PORT = 3000;
+
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 🔌 CONEXIÓN POSTGRES
+const pool = new Pool({
+  user: 'solutecno',
+  host: 'localhost',
+  database: 'solutecno_db',
+  password: 'Solu1234!',
+  port: 5432,
+});
+
+// estado
+let qrImage = null;
+let ready = false;
+
+// cliente whatsapp
+const client = new Client({
+  authStrategy: new LocalAuth({ clientId: "solutecno" }),
+  puppeteer: {
+    headless: true,
+    args: ['--no-sandbox','--disable-setuid-sandbox']
+  }
+});
+
+client.on('qr', async (qr) => {
+  console.log('QR generado');
+  qrImage = await QRCode.toDataURL(qr);
+  qrcodeTerminal.generate(qr, { small: true });
+});
+
+client.on('ready', () => {
+  console.log('WhatsApp conectado');
+  ready = true;
+  qrImage = null;
+});
+
+// ================= BOT =================
+client.on('message_create', async msg => {
+  if (msg.fromMe) return;
+
+  const text = msg.body.toLowerCase().trim();
+  console.log("MENSAJE:", text);
+
+  if (text === '!menu') {
+    await msg.reply('Comandos:\n!menu\n!estado');
+    return;
+  }
+
+  if (text === '!estado') {
+    await msg.reply('Bot activo y funcionando');
+    return;
+  }
+
+  if (text.includes('hola')) {
+    await msg.reply('Hola 😊 soy Solutecno Bot. ¿En qué te puedo ayudar?');
+    return;
+  }
+
+  if (text.includes('precio') || text.includes('info')) {
+    await msg.reply('Perfecto 💼 contame qué necesitás y te asesoro.');
+    return;
+  }
+
+  await msg.reply('Recibí tu mensaje 👍');
+});
+
+client.initialize();
+
+// ================= API CONFIG =================
+app.post('/api/config', async (req, res) => {
+  try {
+    const config = req.body;
+
+    await pool.query(
+      `INSERT INTO bot_configs (tenant_id, config)
+       VALUES (1, $1)
+       ON CONFLICT (tenant_id)
+       DO UPDATE SET config = $1, updated_at = CURRENT_TIMESTAMP`,
+      [config]
+    );
+
+    res.json({ ok: true, message: "Configuración guardada en DB" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, message: "Error al guardar config" });
+  }
+});
+
+// ================= API KNOWLEDGE =================
+app.post('/api/knowledge', async (req, res) => {
+  try {
+    const data = req.body;
+
+    await pool.query(
+      `INSERT INTO knowledge (tenant_id, data)
+       VALUES (1, $1)
+       ON CONFLICT (tenant_id)
+       DO UPDATE SET data = $1, updated_at = CURRENT_TIMESTAMP`,
+      [data]
+    );
+
+    res.json({ ok: true, message: "Conocimiento guardado en DB" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, message: "Error al guardar conocimiento" });
+  }
+});
+
+// ================= STATUS =================
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: ready ? 'connected' : 'disconnected',
+    qr: qrImage
+  });
+});
+
+// ================= QR =================
+app.get('/api/qr', (req, res) => {
+  if (!qrImage) return res.send('No QR');
+  res.send(`<img src="${qrImage}" />`);
+});
+
+// fallback
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log('Servidor corriendo en puerto 3000');
+});
