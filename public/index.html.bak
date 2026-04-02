@@ -169,5 +169,39 @@
     reloadStatus();
     setInterval(reloadStatus, 7000);
   </script>
+<hr>
+<h2>📊 Leads recientes</h2>
+<div id="leadsBox">Cargando...</div>
+
+<script>
+async function cargarLeads() {
+  try {
+    const res = await fetch('/api/leads');
+    const data = await res.json();
+
+    if (!data.length) {
+      document.getElementById('leadsBox').innerHTML = "No hay leads aún";
+      return;
+    }
+
+    let html = "<ul>";
+
+    data.forEach(l => {
+      html += `<li><b>${l.phone}</b> - ${l.message}</li>`;
+    });
+
+    html += "</ul>";
+
+    document.getElementById('leadsBox').innerHTML = html;
+
+  } catch (e) {
+    document.getElementById('leadsBox').innerHTML = "Error cargando leads";
+  }
+}
+
+// cargar cada 5 segundos
+setInterval(cargarLeads, 5000);
+cargarLeads();
+</script>
 </body>
 </html>

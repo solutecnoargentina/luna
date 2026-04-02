@@ -1,7 +1,6 @@
-const fs = require('fs');
-const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
+const path = require('path');
 const QRCode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -13,7 +12,7 @@ const PORT = 3000;
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🔌 CONEXIÓN POSTGRES
+// 🔌 PostgreSQL
 const pool = new Pool({
   user: 'solutecno',
   host: 'localhost',
@@ -26,7 +25,7 @@ const pool = new Pool({
 let qrImage = null;
 let ready = false;
 
-// cliente whatsapp
+// WhatsApp
 const client = new Client({
   authStrategy: new LocalAuth({ clientId: "solutecno" }),
   puppeteer: {
@@ -36,92 +35,69 @@ const client = new Client({
 });
 
 client.on('qr', async (qr) => {
-  console.log('QR generado');
   qrImage = await QRCode.toDataURL(qr);
   qrcodeTerminal.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
-  console.log('WhatsApp conectado');
   ready = true;
   qrImage = null;
+  console.log("WhatsApp conectado");
 });
 
-// ================= BOT =================
+// 💰 BOT
 client.on('message_create', async msg => {
   if (msg.fromMe) return;
 
   const text = msg.body.toLowerCase().trim();
+  const phone = msg.from.replace(/\D/g, '');
+
   console.log("MENSAJE:", text);
 
+  // comandos
   if (text === '!menu') {
-    await msg.reply('Comandos:\n!menu\n!estado');
-    return;
+    return msg.reply('Comandos:\n!menu\n!estado');
   }
 
   if (text === '!estado') {
-    await msg.reply('Bot activo y funcionando');
-    return;
+    return msg.reply('Bot activo');
   }
 
+  // saludo
   if (text.includes('hola')) {
-    await msg.reply('Hola 😊 soy Solutecno Bot. ¿En qué te puedo ayudar?');
-    return;
+    return msg.reply('Hola 😊 soy Solutecno Bot');
   }
 
-  if (text.includes('precio') || text.includes('info')) {
-    await msg.reply('Perfecto 💼 contame qué necesitás y te asesoro.');
-    return;
+  // 🔥 DETECCIÓN DE LEAD (FIJA PARA PRUEBA)
+  if (
+    text.includes('precio') ||
+    text.includes('info') ||
+    text.includes('contratar') ||
+    text.includes('presupuesto')
+  ) {
+    try {
+      console.log("INTENTANDO GUARDAR LEAD...");
+
+      await pool.query(
+        "INSERT INTO leads (tenant_id, phone, message) VALUES ($1, $2, $3)",
+        [1, phone, msg.body]
+      );
+
+      console.log("✅ LEAD GUARDADO CORRECTAMENTE");
+
+    } catch (err) {
+      console.error("❌ ERROR GUARDANDO LEAD:", err);
+    }
+
+    return msg.reply('Perfecto 💼 contame qué necesitás y te asesoro.');
   }
 
-  await msg.reply('Recibí tu mensaje 👍');
+  return msg.reply('Recibí tu mensaje 👍');
 });
 
 client.initialize();
 
-// ================= API CONFIG =================
-app.post('/api/config', async (req, res) => {
-  try {
-    const config = req.body;
-
-    await pool.query(
-      `INSERT INTO bot_configs (tenant_id, config)
-       VALUES (1, $1)
-       ON CONFLICT (tenant_id)
-       DO UPDATE SET config = $1, updated_at = CURRENT_TIMESTAMP`,
-      [config]
-    );
-
-    res.json({ ok: true, message: "Configuración guardada en DB" });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ ok: false, message: "Error al guardar config" });
-  }
-});
-
-// ================= API KNOWLEDGE =================
-app.post('/api/knowledge', async (req, res) => {
-  try {
-    const data = req.body;
-
-    await pool.query(
-      `INSERT INTO knowledge (tenant_id, data)
-       VALUES (1, $1)
-       ON CONFLICT (tenant_id)
-       DO UPDATE SET data = $1, updated_at = CURRENT_TIMESTAMP`,
-      [data]
-    );
-
-    res.json({ ok: true, message: "Conocimiento guardado en DB" });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ ok: false, message: "Error al guardar conocimiento" });
-  }
-});
-
-// ================= STATUS =================
+// ================= API =================
 app.get('/api/status', (req, res) => {
   res.json({
     status: ready ? 'connected' : 'disconnected',
@@ -129,17 +105,28 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// ================= QR =================
 app.get('/api/qr', (req, res) => {
   if (!qrImage) return res.send('No QR');
   res.send(`<img src="${qrImage}" />`);
 });
+// ================= LEADS =================
+app.get('/api/leads', async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM leads ORDER BY id DESC LIMIT 20"
+    );
 
-// fallback
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error(err);
+    res.json([]);
+  }
+});
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log('Servidor corriendo en puerto 3000');
+  console.log("Servidor corriendo en puerto 3000");
 });

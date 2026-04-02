@@ -169,5 +169,86 @@
     reloadStatus();
     setInterval(reloadStatus, 7000);
   </script>
+<hr>
+<h2>📊 Leads recientes</h2>
+<div id="leadsBox">Cargando...</div>
+
+<script>
+async function cargarLeads() {
+  try {
+    const res = await fetch('/api/leads');
+    const data = await res.json();
+
+    if (!data.length) {
+      document.getElementById('leadsBox').innerHTML = "No hay leads aún";
+      return;
+    }
+
+    let html = "<ul>";
+
+    data.forEach(l => {
+      html += `<li><b>${l.phone}</b> - ${l.message}</li>`;
+    });
+
+    html += "</ul>";
+
+    document.getElementById('leadsBox').innerHTML = html;
+
+  } catch (e) {
+    document.getElementById('leadsBox').innerHTML = "Error cargando leads";
+  }
+}
+
+// cargar cada 5 segundos
+setInterval(cargarLeads, 5000);
+cargarLeads();
+</script>
 </body>
 </html>
+
+<hr>
+<h2>📊 Leads recientes</h2>
+<div id="leadsBox">Cargando...</div>
+
+<script>
+async function cargarLeadsExtra() {
+  try {
+    const res = await fetch('/api/leads');
+    const data = await res.json();
+
+    if (!data.length) {
+      document.getElementById('leadsBox').innerHTML = "No hay leads aún";
+      return;
+    }
+
+    let html = "<ul>";
+
+    data.forEach(l => {
+      html += `<li style="margin-bottom:10px">
+        <b>${l.phone}</b><br>
+        ${l.message}<br>
+        <small style="color:gray">${l.created_at || ''}</small>
+      </li>`;
+    });
+
+    html += "</ul>";
+
+    document.getElementById('leadsBox').innerHTML = html;
+
+  } catch (e) {
+    document.getElementById('leadsBox').innerHTML = "Error cargando leads";
+  }
+}
+
+setInterval(cargarLeadsExtra, 5000);
+cargarLeadsExtra();
+</script>
+
+
+<br><br>
+
+<button onclick="window.open('/api/qr','_blank')" 
+style="padding:12px;background:#28a745;color:white;border:0;border-radius:6px;font-weight:bold;cursor:pointer;">
+📱 Conectar WhatsApp (QR)
+</button>
+
